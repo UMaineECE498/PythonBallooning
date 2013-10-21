@@ -1,7 +1,7 @@
 Project Documentation
 ======================
 
-This directory should contain any project spesific doscumentation.
+This directory should contain any project specific documentation.
 
 
 Blake & Ben proposed Flowchart:
