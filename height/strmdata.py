@@ -1,7 +1,10 @@
 #!/usr/bin/python2
 import pygrib
 import matplotlib.pyplot as plt
+import os
 from numpy import *
+from urllib import *
+import zipfile
 
 def trunc(val):
 	sp = str(val).split('.')
@@ -39,11 +42,9 @@ def getArrayLocation(lat, lon):
 	else:
 		lonDecimal = abs(lon - ceil(lon))
 
-	latIndex = round(latDecimal * 3600)
-	lonIndex = round(lonDecimal * 3600)
+	latIndex = round((1 - latDecimal) * 3600)
+	lonIndex = round((1 - lonDecimal) * 3600)
 	
-	print latDecimal, lonDecimal
-	print latIndex, lonIndex
 	return [latIndex, lonIndex]
 
 lat = 44.9026
@@ -51,22 +52,27 @@ lon = -68.6699
 
 fileName = getFileNameFromDegrees(lat, lon)
 
-print fileName
-
 [latIndex, lonIndex] = getArrayLocation(lat, lon)
-print latIndex, lonIndex
 
+zipName = fileName + '.zip'
+webURL = 'http://dds.cr.usgs.gov/srtm/version2_1/SRTM1/Region_06/'
+fullURL = webURL + zipName 
+
+if (os.path.exists(fileName) == False):
+	print 'File ' + fileName + ' does not exist.'
+	print 'Downloading file from ' + fullURL + '.' 
+	print 'This may take some time.'
+	urlretrieve(fullURL, zipName)
+	with zipfile.ZipFile(zipName) as myzip:
+		myzip.extractall()
+	
 t=fromfile(fileName, dtype=dtype('>H'))
+
 t=reshape(t, (3601,3601))
 
-print t[latIndex, lonIndex]
-#print t[3250,2412]
-#print t[0,0]
+elevation = t[latIndex, lonIndex]
 
-#lats=linspace(lat, lat-1, 3601)
-#lons=linspace(lon, lon+1, 3601)
-#p=plt.contour(lons, lats, t, 128)
-#plt.show()
+print elevation
 
 #data from here: http://dds.cr.usgs.gov/srtm/version2_1/SRTM1/Region_06/
 
