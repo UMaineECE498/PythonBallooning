@@ -32,11 +32,9 @@ class Altitude:
         while altitude > 0:
             altitude -= (self.input.params.descent * 1.1045) / math.sqrt(self.getDensity(altitude))
             self.input.params.profile[launch_time + time] = altitude
-            time += 1
+            time += 2
 
     # Would like to use the grib files to do this, if possible...
-    # Based on: https://github.com/rjw57/cusf-landing-prediction/blob/master/pred_src/altitude.c
-    # Which is in turn based on: http://www.grc.nasa.gov/WWW/K-12/airplane/atmosmet.html
     def getDensity(self, altitude):
 
         if altitude > 25000:
