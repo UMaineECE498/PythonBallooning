@@ -8,6 +8,7 @@ import os
 from math import *
 import data as DataManager
 import time
+import calendar
 
 class Wind:
     def __init__(self, data):
@@ -20,6 +21,10 @@ class Wind:
 
 
     def runPrediction(self):
+
+        lat_meter = 200.0/22226349.0
+        lon_meter = 1.0/78846.80572069259
+
         try:
             start_time = time.time()
             grb_p = pygrib.open(self.data.params.files[0])
@@ -75,12 +80,34 @@ class Wind:
         print self.data.params.profile
         print len(self.data.params.profile)
 
-        #for altitude in self.data.params.profile.values():
-        #    print altitude
-        #    pressure = self.pressureAltitude(altitude)
-            #cur_u = grb_p.select(name='U component of wind', level=pressure/100)
-            #cur_v = grb_p.select(name='V component of wind', level=pressure/100)
-            #print cur_u
+        cur_u = grb_p.select(name='U component of wind', level=200/100)
+        cur_v = grb_p.select(name='V component of wind', level=200/100)
+        cur_pressure = 200
+
+        descent = 0
+        # Could remove altitude/Pressure steps in the future to speed this stage up...
+        for altitude in sorted(self.data.params.profile.iterkeys()):
+            if altitude > calendar.timegm(self.data.params.burst_time.timetuple()):
+                descent = 1
+
+            pressure = self.pressureAltitude(self.data.params.profile[altitude])
+            if pressure != cur_pressure:
+                print "New Level: ", pressure
+                cur_u = grb_p.select(name='U component of wind', level=pressure/100)
+                cur_v = grb_p.select(name='V component of wind', level=pressure/100)
+                cur_pressure = pressure
+
+            u_move = cur_u[0].values[self.grbLat(shape, self.data.params.launch_lat), self.grbLon(shape, self.data.params.launch_lon)]
+            v_move = cur_v[0].values[self.grbLat(shape, self.data.params.launch_lat), self.grbLon(shape, self.data.params.launch_lon)]
+
+            u_degrees = u_move * self.data.params.ascent_step * lat_meter
+            v_degrees = v_move * self.data.params.ascent_step * lon_meter
+
+            self.position.append((0, self.position[-1][1] + u_degrees, self.position[-1][2] + v_degrees))
+
+        for point in self.position:
+            print point[1], ',', point[2]
+
 
     def pressureAltitude(self, altitude):
         pressure = 101325 * (1 - 0.0000225577 * altitude)**5.25588

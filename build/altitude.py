@@ -14,6 +14,8 @@ class Altitude:
     def updateAltitudeProfile(self):
         """Generates an altitude profile from a launch's input parameters
         """
+        ascent_step = 5
+        descent_step = 10
 
         # If the ascent or descent rate have changed, the burst time must be recalculated
         self.input.params.burst_time = timedelta(seconds=self.input.params.burst / self.input.params.ascent) + self.input.params.launch_time
@@ -23,16 +25,16 @@ class Altitude:
         burst_time = calendar.timegm(self.input.params.burst_time.timetuple())
 
         # Generate ascent phase of altitude profile
-        for time in range(launch_time, int(burst_time)):          # Should go from launch to a second before burst
+        for time in range(launch_time, int(burst_time), self.input.params.ascent_step):          # Should go from launch to a second before burst
             self.input.params.profile[launch_time + time] = self.input.params.ascent * (time - launch_time)
 
         # From burst to ground, generate descent phase
         time = int(burst_time)
         altitude = self.input.params.burst
         while altitude > 0:
-            altitude -= (self.input.params.descent * 1.1045) / math.sqrt(self.getDensity(altitude))
+            altitude -= (self.input.params.descent * self.input.params.descent_step * 1.1045) / math.sqrt(self.getDensity(altitude))
             self.input.params.profile[launch_time + time] = altitude
-            time += 2
+            time += self.input.params.descent_step
 
     # Would like to use the grib files to do this, if possible...
     def getDensity(self, altitude):

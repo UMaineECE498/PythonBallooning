@@ -13,7 +13,9 @@ class PredictorInput:
         self.params = DataManager()
         # Load all the passed data into a common data structure
         self.params.ascent = ascent
+        self.params.ascent_step = 10
         self.params.descent = descent
+        self.params.descent_step = 10
         self.params.burst = burst
         self.params.launch_time = launch_time
 
