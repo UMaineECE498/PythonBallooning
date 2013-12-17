@@ -82,23 +82,83 @@ class Wind:
 
         cur_u = grb_p.select(name='U component of wind', level=200/100)
         cur_v = grb_p.select(name='V component of wind', level=200/100)
-        cur_pressure = 200
+        current_values = {}
+        current_values['pressure'] = 200
+
 
         descent = 0
         # Could remove altitude/Pressure steps in the future to speed this stage up...
-        for altitude in sorted(self.data.params.profile.iterkeys()):
-            if altitude > calendar.timegm(self.data.params.burst_time.timetuple()):
+        for balloon_time in sorted(self.data.params.profile.iterkeys()):
+            if balloon_time > calendar.timegm(self.data.params.burst_time.timetuple()):
                 descent = 1
 
-            pressure = self.pressureAltitude(self.data.params.profile[altitude])
-            if pressure != cur_pressure:
+            pressure = self.pressureAltitude(self.data.params.profile[balloon_time])
+            if pressure != current_values['pressure']:
+
                 print "New Level: ", pressure
+                start_time = time.time()
+
                 cur_u = grb_p.select(name='U component of wind', level=pressure/100)
                 cur_v = grb_p.select(name='V component of wind', level=pressure/100)
-                cur_pressure = pressure
 
-            u_move = cur_u[0].values[self.grbLat(shape, self.data.params.launch_lat), self.grbLon(shape, self.data.params.launch_lon)]
-            v_move = cur_v[0].values[self.grbLat(shape, self.data.params.launch_lat), self.grbLon(shape, self.data.params.launch_lon)]
+                print "Select Pressure - ", time.time() - start_time, "seconds"
+
+                current_values['pressure'] = pressure
+
+                # If we change pressure level, throw away all previous data
+                current_values['grbLat'] = -1
+                current_values['grbLon'] = -1
+
+            # If we're looking at a new .5 degree index into the file, get new values, otherwise continue
+            if self.grbLat(shape, self.position[-1][1]) != current_values['grbLat'] or self.grbLon(shape, self.position[-1][2]) != current_values['grbLon']:
+                start_time = time.time()
+
+                # Update Current Latitude and Longitude index in grb file
+                current_values['grbLat'] = self.grbLat(shape, self.position[-1][1])
+                current_values['grbLon'] = self.grbLon(shape, self.position[-1][2])
+
+
+                current_values['u'] = cur_u[0].values[self.grbLat(shape, self.position[-1][1])-2:self.grbLat(shape, self.position[-1][1]),
+                                                        self.grbLon(shape, self.position[-1][2])-2:self.grbLon(shape, self.position[-1][2])]
+                current_values['v'] = cur_v[0].values[self.grbLat(shape, self.position[-1][1])-2:self.grbLat(shape, self.position[-1][1]),
+                                      self.grbLon(shape, self.position[-1][2])-2:self.grbLon(shape, self.position[-1][2])]
+
+                # Update Current U and V components of wind
+                current_values['u_hh'] = current_values['u'][1,1]
+                current_values['v_hh'] = current_values['v'][1,1]
+
+                current_values['u_ll'] = current_values['u'][0,0]
+                current_values['v_ll'] = current_values['v'][0,0]
+
+                current_values['u_lh'] = current_values['u'][0,1]
+                current_values['v_lh'] = current_values['v'][0,1]
+
+                current_values['u_hl'] = current_values['v'][1,0]
+                current_values['v_hl'] = current_values['v'][1,0]
+
+                print "Select Wind Speed - ", time.time() - start_time, "seconds"
+
+            u_move = self.squareInterpolate(self.grbLat(shape, self.position[-1][1])-1 * .5,
+                                            self.grbLon(shape, self.position[-1][2])-1 * .5,
+                                            self.grbLat(shape, self.position[-1][1]) * .5,
+                                            self.grbLon(shape, self.position[-1][2]) * .5,
+                                            self.position[-1][1],
+                                            self.position[-1][2],
+                                            current_values['u_ll'],
+                                            current_values['u_lh'],
+                                            current_values['u_hl'],
+                                            current_values['u_hh'])
+
+            v_move = self.squareInterpolate(self.grbLat(shape, self.position[-1][1])-1 * .5,
+                                            self.grbLon(shape, self.position[-1][2])-1 * .5,
+                                            self.grbLat(shape, self.position[-1][1]) * .5,
+                                            self.grbLon(shape, self.position[-1][2]) * .5,
+                                            self.position[-1][1],
+                                            self.position[-1][2],
+                                            current_values['v_ll'],
+                                            current_values['v_lh'],
+                                            current_values['v_hl'],
+                                            current_values['v_hh'])
 
             u_degrees = u_move * self.data.params.ascent_step * lat_meter
             v_degrees = v_move * self.data.params.ascent_step * lon_meter
@@ -134,7 +194,7 @@ class Wind:
 
     def grbLon(self, shape, longitude):
         # Longitude is traditionally -180 to 180 degrees
-        # Need to do some conversion to get that to 0 - 369
+        # Need to do some conversion to get that to 0 - 360
         # We're also assuming .5 degree scaling, so 0 - 720
         longitude = longitude + 180
         # Sadly, our default min and max comes in as 0 - 360 :(
@@ -150,6 +210,15 @@ class Wind:
         else:
             index = 0.5 * ceil( 4.0 * (longitude - minimum)) # Same as above, round to the nearest half degree and generate index
             return index
+
+    def interpolate(self, al, ah, a, vl ,vh):
+        a_d = float(a - al)/float(ah - al)
+        return ((1 - a_d)*vl + a_d*vh)
+
+    def squareInterpolate(self, xl, yl, xh, yh, x, y, vll, vlh, vhl, vhh):
+        v0 = self.interpolate(xl, xh, x, vll, vhl)
+        v1 = self.interpolate(xl, xh, x, vlh, vhh)
+        return self.interpolate(yl, yh, y, v0, v1)
 
 class WindServer:
     def __init__(self, data):
