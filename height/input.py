@@ -3,32 +3,56 @@ import wx
 import wx.lib.masked as masked
 import os
 import strmdata
+import datetime
 
 class MainWindow(wx.Frame):
 	def __init__(self, parent, title):
 		self.dirname='.'
 
-		self.values = {'lat' : '10', 
-			'lon' : 0, 
+		self.values = {
+			'lat'	: 0, 
+			'lon'	: 0, 
 			'ltime' : 0, 
 			'ldate' : 0, 
-			'stime' : 0, 
-			'sdate' : 0, 
-			'alt' : 0, 
+			# 'stime' : 0, 
+			# 'sdate' : 0, 
+			'alt'	: 0, 
 			'arate' : 0, 
-			'balt' : 0, 
+			'balt'	: 0, 
 			'drate' : 0,
+		}
+		currtime=datetime.datetime.now()
+		self.defaults = {
+			'lat'	: 44.8994, 
+			'lon'	: 68.6681, 
+			'ltime' : '%s:%s:%s'%(currtime.hour,currtime.minute,currtime.second), 
+			'ldate' : 0, 
+			# 'stime' : 0, 
+			# 'sdate' : 0, 
+			'alt'	: 30, 
+			'arate' : 5, 
+			'balt'	: 30000, 
+			'drate' : 5,
 		}
 
 		# -1 indicates to use default size
 		# this uses a window 200px wide and 100px high
 		wx.Frame.__init__(self, parent, title=title, size=(200,200))
 
+		# Lets make a file menu
+		filemenu = wx.Menu()
+		menuExit = filemenu.Append(wx.ID_EXIT, "E&xit", "Exit the program")
+		self.Bind(wx.EVT_MENU, self.onExit, menuExit)
+		menuBar = wx.MenuBar()
+		menuBar.Append(filemenu, "&File")
+		self.SetMenuBar(menuBar)
+		# self.Show(True)
+
 		# inputs
 		self.inputSizer = wx.BoxSizer(wx.VERTICAL)
 
 		# latitude
-		self.latitudeInput = masked.NumCtrl(self, fractionWidth=4, min=0, max=90, limitOnFieldChange=True, value=44.8994)
+		self.latitudeInput = masked.NumCtrl(self, fractionWidth=4, min=0, max=90, limitOnFieldChange=True, value=self.defaults['lat'])
 		self.latitudeDirection = wx.RadioBox(self, choices = ['N','S'])
 		self.latitudeLabel = wx.StaticText(self, label="Latitudue:  ")
 		self.latitudeSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -44,7 +68,7 @@ class MainWindow(wx.Frame):
 		self.SetDirection('lat', 0)
 
 		# longitude
-		self.longitudeInput = masked.NumCtrl(self, fractionWidth=4, min=0, max=180, limitOnFieldChange=True, value=68.6681)
+		self.longitudeInput = masked.NumCtrl(self, fractionWidth=4, min=0, max=180, limitOnFieldChange=True, value=self.defaults['lon'])
 		self.longitudeDirection = wx.RadioBox(self, choices = ['E','W'])
 		self.longitudeLabel = wx.StaticText(self, label="Longitude:  ")
 		self.longitudeSizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -60,8 +84,8 @@ class MainWindow(wx.Frame):
 		self.SetDirection('lon', 1)
 
 		# altitude
-		self.altitudeInput = masked.NumCtrl(self, fractionWidth=2, min=0, limitOnFieldChange=True)
-		self.altitudeLabel = wx.StaticText(self, label="Altitude:  ")
+		self.altitudeInput = masked.NumCtrl(self, fractionWidth=2, min=0, limitOnFieldChange=True, value=self.defaults['alt'])
+		self.altitudeLabel = wx.StaticText(self, label="Launch Altitude [m]:  ")
 		self.altitudeCheckBox = wx.CheckBox(self, label="User Defined")
 		self.altitudeSizer = wx.BoxSizer(wx.HORIZONTAL)
 		self.altitudeSizer.Add(self.altitudeLabel, 1, wx.EXPAND)
@@ -73,9 +97,12 @@ class MainWindow(wx.Frame):
 		self.values['alt'] = str(self.altitudeInput.GetValue())
 		self.userDefinedAlt = 0
 
+		if self.userDefinedAlt == 0:
+			self.altitudeInput.Enable(False)
+
 		# launch time
-		self.launchTimeInput = masked.TimeCtrl(self, -1, fmt24hr=False, displaySeconds=False)
-		self.launchTimeLabel = wx.StaticText(self, label="Launch Time:  ")
+		self.launchTimeInput = masked.TimeCtrl(self, -1, fmt24hr=False, displaySeconds=False, value=self.defaults['ltime'])
+		self.launchTimeLabel = wx.StaticText(self, label="Launch Time:")
 		self.launchTimeSizer = wx.BoxSizer(wx.HORIZONTAL)
 		self.launchTimeSizer.Add(self.launchTimeLabel, 1, wx.EXPAND)
 		self.launchTimeSizer.Add(self.launchTimeInput, 1, wx.EXPAND)
@@ -85,7 +112,7 @@ class MainWindow(wx.Frame):
 
 		# launch date
 		self.launchDateInput = wx.DatePickerCtrl(self, -1)
-		self.launchDateLabel = wx.StaticText(self, label="Launch Date:  ")
+		self.launchDateLabel = wx.StaticText(self, label="Launch Date:")
 		self.launchDateSizer = wx.BoxSizer(wx.HORIZONTAL)
 		self.launchDateSizer.Add(self.launchDateLabel, 1, wx.EXPAND)
 		self.launchDateSizer.Add(self.launchDateInput, 1, wx.EXPAND)
@@ -93,29 +120,29 @@ class MainWindow(wx.Frame):
 		self.Bind(wx.EVT_DATE_CHANGED, self.EvtDatePickerCtrl, self.launchDateInput)
 		self.values['ldate'] = str(self.FindDate(self.launchDateInput))
 
-		# start time
-		self.startTimeInput = masked.TimeCtrl(self, -1, fmt24hr=False, displaySeconds=False)
-		self.startTimeLabel = wx.StaticText(self, label="Start Time:  ")
-		self.startTimeSizer = wx.BoxSizer(wx.HORIZONTAL)
-		self.startTimeSizer.Add(self.startTimeLabel, 1, wx.EXPAND)
-		self.startTimeSizer.Add(self.startTimeInput, 1, wx.EXPAND)
-		self.inputSizer.Add(self.startTimeSizer, 1, wx.EXPAND)
-		self.startTimeInput.Bind(masked.EVT_TIMEUPDATE, self.EvtTimeCtrl, self.startTimeInput)
-		self.values['stime'] = str(self.startTimeInput.GetValue())
+		# # start time
+		# self.startTimeInput = masked.TimeCtrl(self, -1, fmt24hr=False, displaySeconds=False)
+		# self.startTimeLabel = wx.StaticText(self, label="Start Time:  ")
+		# self.startTimeSizer = wx.BoxSizer(wx.HORIZONTAL)
+		# self.startTimeSizer.Add(self.startTimeLabel, 1, wx.EXPAND)
+		# self.startTimeSizer.Add(self.startTimeInput, 1, wx.EXPAND)
+		# self.inputSizer.Add(self.startTimeSizer, 1, wx.EXPAND)
+		# self.startTimeInput.Bind(masked.EVT_TIMEUPDATE, self.EvtTimeCtrl, self.startTimeInput)
+		# self.values['stime'] = str(self.startTimeInput.GetValue())
 
-		# start date
-		self.startDateInput = wx.DatePickerCtrl(self, -1)
-		self.startDateLabel = wx.StaticText(self, label="Start Date:  ")
-		self.startDateSizer = wx.BoxSizer(wx.HORIZONTAL)
-		self.startDateSizer.Add(self.startDateLabel, 1, wx.EXPAND)
-		self.startDateSizer.Add(self.startDateInput, 1, wx.EXPAND)
-		self.inputSizer.Add(self.startDateSizer, 1, wx.EXPAND)
-		self.Bind(wx.EVT_DATE_CHANGED, self.EvtDatePickerCtrl, self.startDateInput)
-		self.values['sdate'] = str(self.FindDate(self.startDateInput))
+		# # start date
+		# self.startDateInput = wx.DatePickerCtrl(self, -1)
+		# self.startDateLabel = wx.StaticText(self, label="Start Date:  ")
+		# self.startDateSizer = wx.BoxSizer(wx.HORIZONTAL)
+		# self.startDateSizer.Add(self.startDateLabel, 1, wx.EXPAND)
+		# self.startDateSizer.Add(self.startDateInput, 1, wx.EXPAND)
+		# self.inputSizer.Add(self.startDateSizer, 1, wx.EXPAND)
+		# self.Bind(wx.EVT_DATE_CHANGED, self.EvtDatePickerCtrl, self.startDateInput)
+		# self.values['sdate'] = str(self.FindDate(self.startDateInput))
 
 		# ascent rate
-		self.ascentRateInput = masked.NumCtrl(self, fractionWidth=3)
-		self.ascentRateLabel = wx.StaticText(self, label="Ascent Rate:  ")
+		self.ascentRateInput = masked.NumCtrl(self, fractionWidth=3, min=0, value=self.defaults['arate'])
+		self.ascentRateLabel = wx.StaticText(self, label="Ascent Rate [m/s]:")
 		self.ascentRateSizer = wx.BoxSizer(wx.HORIZONTAL)
 		self.ascentRateSizer.Add(self.ascentRateLabel, 1, wx.EXPAND)
 		self.ascentRateSizer.Add(self.ascentRateInput, 1, wx.EXPAND)
@@ -124,8 +151,8 @@ class MainWindow(wx.Frame):
 		self.values['arate'] = str(self.ascentRateInput.GetValue())
 
 		# burst altitude
-		self.burstAltitudeInput = masked.NumCtrl(self, fractionWidth=2, min=0, limitOnFieldChange=True)
-		self.burstAltitudeLabel = wx.StaticText(self, label="Burst Altitude:  ")
+		self.burstAltitudeInput = masked.NumCtrl(self, fractionWidth=0, min=0, value=self.defaults['balt'])
+		self.burstAltitudeLabel = wx.StaticText(self, label="Burst Altitude [m]:")
 		self.burstAltitudeSizer = wx.BoxSizer(wx.HORIZONTAL)
 		self.burstAltitudeSizer.Add(self.burstAltitudeLabel, 1, wx.EXPAND)
 		self.burstAltitudeSizer.Add(self.burstAltitudeInput, 1, wx.EXPAND)
@@ -134,8 +161,8 @@ class MainWindow(wx.Frame):
 		self.values['balt'] = str(self.burstAltitudeInput.GetValue())
 
 		# descent rate
-		self.descentRateInput = masked.NumCtrl(self, fractionWidth=3)
-		self.descentRateLabel = wx.StaticText(self, label="Descent Rate:  ")
+		self.descentRateInput = masked.NumCtrl(self, fractionWidth=3, value=self.defaults['drate'])
+		self.descentRateLabel = wx.StaticText(self, label="Descent Rate [m/s]: ")
 		self.descentRateSizer = wx.BoxSizer(wx.HORIZONTAL)
 		self.descentRateSizer.Add(self.descentRateLabel, 1, wx.EXPAND)
 		self.descentRateSizer.Add(self.descentRateInput, 1, wx.EXPAND)
@@ -145,7 +172,7 @@ class MainWindow(wx.Frame):
 
 		# buttons
 		self.buttonSizer = wx.BoxSizer(wx.HORIZONTAL)
-		self.mySetButton = wx.Button(self, wx.ID_OK, "Set Values")
+		self.mySetButton = wx.Button(self, wx.ID_OK, "Run Prediction")
 		self.buttonSizer.Add(self.mySetButton, 2)
 		self.Bind(wx.EVT_BUTTON, self.OnClick, self.mySetButton)
 
@@ -165,6 +192,11 @@ class MainWindow(wx.Frame):
 
 	def EvtCheckBox(self, event):
 		self.userDefinedAlt = event.GetInt()
+		if self.userDefinedAlt == 0:
+			self.altitudeInput.Enable(False)
+		else:
+			self.altitudeInput.Enable(True)
+
 
 	def EvtTimeCtrl(self, event):
 		self.values[3] = event.GetValue()
@@ -175,11 +207,11 @@ class MainWindow(wx.Frame):
 
 	def EvtRadioBoxNS(self, event):
 		self.directionNS = event.GetInt()
-		self.SetDirection(0, self.directionNS)
+		self.SetDirection('lat', self.directionNS)
 
 	def EvtRadioBoxEW(self, event):
 		self.directionEW = event.GetInt()
-		self.SetDirection(1, self.directionEW)
+		self.SetDirection('lon', self.directionEW)
 
 	def EvtNum(self, event, index):
 		self.values[index] = str(event.GetValue())
@@ -193,6 +225,7 @@ class MainWindow(wx.Frame):
 		return dateStr
 
 	def SetDirection(self, index, direction):
+		print index, direction
 		if (direction == 0):
 			self.values[index] = str(abs(float(self.values[index])))
 		else:
@@ -225,7 +258,10 @@ class MainWindow(wx.Frame):
 		for string in self.values:
 			print (string + ' = ' + self.values[string])
 
+	def onExit(self, event):
+		self.Close(True)
+
 
 app = wx.App(False)
-frame = MainWindow(None, "Sample editor")
+frame = MainWindow(None, "Python HAB Predictor")
 app.MainLoop()
