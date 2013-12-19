@@ -220,7 +220,6 @@ class Wind:
 
 class WindServer:
     def __init__(self, data):
-        return
         print "Initialize Wind File Server"
 
         tz = timezone('America/New_York')       ## TODO: Make this not static?
@@ -231,7 +230,6 @@ class WindServer:
         self.data = data
         self.data.params.files = []     # Maintains record of downloaded files valid for this prediction sequence
     def updateFiles(self):
-        return
 
         print "Update Files"
         # Clean out file array
