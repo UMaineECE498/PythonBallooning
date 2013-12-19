@@ -28,6 +28,8 @@ class Wind:
         try:
             start_time = time.time()
             grb_p = pygrib.open(self.data.params.files[0])
+
+            grb_p_test = pygrib.index(self.data.params.files[0], 'name', 'level')
             grb_s = pygrib.open(self.data.params.files[1])
             print "Open Files - ", time.time() - start_time, "seconds"
         except:
@@ -35,10 +37,6 @@ class Wind:
 
         grb_p.seek(0)
 
-
-        height = grb_p.select(level=1000)
-        for grb in height:
-            print grb
 
         print self.pressureAltitude(100)
 
@@ -80,8 +78,8 @@ class Wind:
         print self.data.params.profile
         print len(self.data.params.profile)
 
-        cur_u = grb_p.select(name='U component of wind', level=200/100)
-        cur_v = grb_p.select(name='V component of wind', level=200/100)
+        cur_u = grb_p_test(name='U component of wind', level=200/100)
+        cur_v = grb_p_test(name='V component of wind', level=200/100)
         current_values = {}
         current_values['pressure'] = 200
 
@@ -98,8 +96,8 @@ class Wind:
                 print "New Level: ", pressure
                 start_time = time.time()
 
-                cur_u = grb_p.select(name='U component of wind', level=pressure/100)
-                cur_v = grb_p.select(name='V component of wind', level=pressure/100)
+                cur_u = grb_p_test(name='U component of wind', level=pressure/100)
+                cur_v = grb_p_test(name='V component of wind', level=pressure/100)
 
                 print "Select Pressure - ", time.time() - start_time, "seconds"
 
@@ -133,7 +131,7 @@ class Wind:
                 current_values['u_lh'] = current_values['u'][0,1]
                 current_values['v_lh'] = current_values['v'][0,1]
 
-                current_values['u_hl'] = current_values['v'][1,0]
+                current_values['u_hl'] = current_values['u'][1,0]
                 current_values['v_hl'] = current_values['v'][1,0]
 
                 print "Select Wind Speed - ", time.time() - start_time, "seconds"
@@ -223,6 +221,8 @@ class Wind:
 class WindServer:
     def __init__(self, data):
         return
+        print "Initialize Wind File Server"
+
         tz = timezone('America/New_York')       ## TODO: Make this not static?
         # Datetime objects representing the launch and current times, shifed for UTC
         self.launch_time = data.params.launch_time - tz.utcoffset(data.params.launch_time, is_dst=True)
@@ -232,11 +232,16 @@ class WindServer:
         self.data.params.files = []     # Maintains record of downloaded files valid for this prediction sequence
     def updateFiles(self):
         return
+
+        print "Update Files"
         # Clean out file array
         self.data.params.files = []
 
         # Always assume that the most up to date runtime is not yet available
         runtime = ((self.current_time.hour-6) / 6) * 6	# Get the Model Runtime
+        if runtime < 0:
+            runtime = 0
+
         launch_time_offset = self.launch_time - self.current_time
 
         # For now, if the prediction take place in the past... don't
@@ -248,8 +253,9 @@ class WindServer:
         ### NOTE THIS ISN'T DONE!
         self.data.params.files.append("./wind/49-43-290-294-%04d%02d%02d%02d-gfs.t%02dz.mastergrb2f%02d" % (self.current_time.year, self.current_time.month, self.current_time.day, prediction_offset, runtime, prediction_offset))
         if not os.path.isfile("./wind/49-43-290-294-%04d%02d%02d%02d-gfs.t%02dz.mastergrb2f%02d" % (self.current_time.year, self.current_time.month, self.current_time.day, prediction_offset, runtime, prediction_offset)):
-            download_url = "http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_hd.pl?file=gfs.t%02dz.mastergrb2f%02d&leftlon=290&rightlon=294&toplat=49&bottomlat=43&dir=%%2Fgfs.%04d%02d%02d%02d%%2Fmaster" % (runtime, prediction_offset, self.current_time.year, self.current_time.month, self.current_time.day, runtime)
+            download_url = "http://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_hd.pl?file=gfs.t%02dz.mastergrb2f%02d&leftlon=290&rightlon=294&toplat=49&bottomlat=43&dir=%%2Fgfs.%04d%02d%02d%02d%%2Fmaster" % (runtime, prediction_offset, self.launch_time.year, self.launch_time.month, self.launch_time.day, runtime)
             print download_url
+            print (runtime, prediction_offset, self.current_time.year, self.current_time.month, self.current_time.day, runtime)
             file = wget.download(download_url)
             shutil.move(file, './wind/49-43-290-294-%04d%02d%02d%02d-%s' % (self.current_time.year, self.current_time.month, self.current_time.day, prediction_offset, file))
         self.data.params.files.append("./wind/49-43-290-294-%04d%02d%02d%02d-gfs.t%02dz.mastergrb2f%02d" % (self.current_time.year, self.current_time.month, self.current_time.day, prediction_offset+3, runtime, prediction_offset+3))
