@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import urllib
+import urllib2
 import zipfile
 import re
 
@@ -121,6 +122,9 @@ def getElevation(lat, lon):
 		print('File ' + fileName + ' does not exist.')
 		print('Downloading file from ' + fullURL + '.') 
 		print('This may take some time.')
+		
+		if not internet_on():
+			raise Exception('Please check your internet connection')
 
 		ret = urllib.urlopen(fullURL)
 		if ret.code != 200:
@@ -146,6 +150,13 @@ def getElevation(lat, lon):
 	elevation = t[latIndex, lonIndex]
 	
 	return elevation
+
+def internet_on():
+    try:						# google's ip addy
+        response=urllib2.urlopen('http://74.125.228.100',timeout=1)
+        return True
+    except urllib2.URLError as err: pass
+    return False
 
 def getDottedDecimal(string):
 	"""Takes a string latitude or longitude and returns the corresponding float value.

@@ -1,0 +1,5 @@
+*.pyc
+build/wind
+build/strm
+*.hgt
+*.hgt.zip
