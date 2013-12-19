@@ -259,8 +259,8 @@ class MainWindow(wx.Frame):
 		print("== Valid Data ==")
 
 		# write all the values somewhere or something instead of printing them out 
-		for string in self.values:
-			print (string + ' = ' + self.values[string])
+		# for string in self.values:
+			# print (string + ' = ' + self.values[string])
 
 		from datetime import datetime
 		from data import PredictorInput
@@ -272,7 +272,7 @@ class MainWindow(wx.Frame):
 		# what about launch alt?
 		# print datetime.strptime(self.values['ldate']+' '+self.values['ltime'], '%m/%d/%Y %H:%M %p')
 		ftime = self.values['ldate']+' '+self.values['ltime']
-		print ftime
+		# print ftime
 		pred = PredictorInput(
 			float(self.values['arate']),
 			float(self.values['drate']),
@@ -282,6 +282,9 @@ class MainWindow(wx.Frame):
 			datetime.strptime(ftime, '%m/%d/%Y %H:%M %p')
 		)
 		pred.Wind.runPrediction()
+		print '='*15
+		print 'Predcition complete'
+		print '='*15
 
 	def onExit(self, event):
 		self.Close(True)
