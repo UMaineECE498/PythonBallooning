@@ -2,16 +2,16 @@
 import pygrib
 import matplotlib.pyplot as plt
 import os
-from numpy import *
-from urllib import *
+import numpy as np
+import urllib
 import zipfile
 import re
 
-def trunc(val):
+def _trunc(val):
 	sp = str(val).split('.')
 	return sp[0]
 
-def getFileNameFromDegrees(lat, lon):
+def _getFileNameFromDegrees(lat, lon):
 	"""Takes a latitude and longitude in dotted decimal format and returns the corresponding STRM file name containing that coordinate.
 
 	The return value is a string containing the file name.
@@ -37,19 +37,19 @@ def getFileNameFromDegrees(lat, lon):
 		ew += '0'
 
 	# find the lowest closest integer absolute value
-	latFloat = abs(floor(lat))
-	latF = trunc(latFloat)
+	latFloat = abs(np.floor(lat))
+	latF = _trunc(latFloat)
 
 	# find the lowest closest integer absolute value
-	lonFloat = abs(floor(lon))
-	lonF = trunc(lonFloat)
+	lonFloat = abs(np.floor(lon))
+	lonF = _trunc(lonFloat)
 
 	# create the filename string
 	fileName = ns+latF+ew+lonF+'.hgt'
 
 	return fileName
 
-def getArrayLocation(lat, lon):
+def _getArrayLocation(lat, lon):
 	"""Takes a latitude and longitude in dotted decimal format and returns the corresponding indices for a STRM file assuming 3601x3601 grid.
 
 	The return values are integer indicies for latitude and longitude respectively.
@@ -63,17 +63,17 @@ def getArrayLocation(lat, lon):
 	if (lat > 0):
 		# uses 1-decimal value because file names specify that the coordinate pair starts
 		# at the bottom left but we read in from the top left
-		latDecimal = 1 - abs(lat - floor(lat))
+		latDecimal = 1 - abs(lat - np.floor(lat))
 	else:
-		latDecimal = abs(lat - ceil(lat))
+		latDecimal = abs(lat - np.ceil(lat))
 
 	# get the decimal portion (different for positive and negative)
 	if (lon > 0):
-		lonDecimal = abs(lon - floor(lon))
+		lonDecimal = abs(lon - np.floor(lon))
 	else:
 		# uses 1-decimal value because file names specify that the coordinate pair starts
 		# at the bottom left but we read in from the top left
-		lonDecimal = 1 - abs(lon - ceil(lon))
+		lonDecimal = 1 - abs(lon - np.ceil(lon))
 
 	# round to the nearest index
 	latIndex = round(latDecimal * 3600)
@@ -90,15 +90,17 @@ def getElevation(lat, lon):
 	# make sure lat is valid and convert to dotted decimal form
 	lat = getDottedDecimal(str(lat))
 	if (lat == None):
+		raise Exception('Invalid Latitude')
 		return None
 
 	# make sure lon is valid and convert to dotted decimal form
 	lon = getDottedDecimal(str(lon))
 	if (lon == None):
+		raise Exception('Invalid Longitude')
 		return None
 
 	# get the file name
-	fileName = getFileNameFromDegrees(lat, lon)
+	fileName = _getFileNameFromDegrees(lat, lon)
 	
 	if (os.path.exists(fileName) == False):
 		# information about the zip file to download if needed	
@@ -109,22 +111,26 @@ def getElevation(lat, lon):
 		print('File ' + fileName + ' does not exist.')
 		print('Downloading file from ' + fullURL + '.') 
 		print('This may take some time.')
+
+		ret = urllib.urlopen(fullURL)
+		if ret.code != 200:
+			raise Exception('The file %s does not exist. (Did you mix up your lat & lon)'%(fullURL))
 	
 		# download the zip file		
-		urlretrieve(fullURL, zipName)
+		urllib.urlretrieve(fullURL, zipName)
 
 		# extract the zip file
 		with zipfile.ZipFile(zipName) as myzip:
 			myzip.extractall()
 
 	# read in the STRM file		
-	t=fromfile(fileName, dtype=dtype('>H'))
+	t=np.fromfile(fileName, dtype=np.dtype('>H'))
 
 	# reshape the file to fit the known size of the data of 3601x3601	
-	t=reshape(t, (3601,3601))
+	t=np.reshape(t, (3601,3601))
 
 	# get the indices for the data file
-	[latIndex, lonIndex] = getArrayLocation(lat, lon)
+	[latIndex, lonIndex] = _getArrayLocation(lat, lon)
 
 	# get the elevation at the index	
 	elevation = t[latIndex, lonIndex]
@@ -190,3 +196,13 @@ def getDottedDecimal(string):
 		val = None
 
 	return val
+
+
+# When run by the console
+if __name__ == "__main__":
+	import sys
+	if len(sys.argv[1:]) != 2:
+		print 'Please pass a latitude and longitude'
+	else:
+		print sys.argv[1], sys.argv[2]
+		print getElevation(sys.argv[1], sys.argv[2])
