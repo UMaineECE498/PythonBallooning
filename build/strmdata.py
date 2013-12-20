@@ -1,6 +1,4 @@
 #!/usr/bin/python2
-import pygrib
-import matplotlib.pyplot as plt
 import os
 import numpy as np
 import urllib
